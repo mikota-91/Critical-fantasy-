@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Critical Fantasy | Float & Auto Orb",
-   LoadingTitle = "Đang khởi tạo hệ thống bay...",
+   Name = "Critical Fantasy | Stable Float",
+   LoadingTitle = "Đang tối ưu độ cao...",
    LoadingSubtitle = "by Gemini AI",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
@@ -16,29 +16,32 @@ local orbContainer = workspace.MapComponents:FindFirstChild("OrbContainer_Client
 local MainTab = Window:CreateTab("Main", 4483362458)
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
--- Hàm di chuyển và giữ nhân vật lơ lửng
-local function tweenTo(targetCFrame)
+-- Hàm di chuyển giữ độ cao ổn định
+local function tweenTo(orbPart)
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local root = player.Character.HumanoidRootPart
         
-        -- Tạo điểm đứng phía trên Orb 5-7 studs để tránh quái đánh dưới đất
-        local floatOffset = CFrame.new(0, 7, 0) 
-        local targetPos = targetCFrame * floatOffset
+        -- LẤY TỌA ĐỘ: X và Z của Orb, nhưng Y (độ cao) sẽ được tính toán
+        -- Chúng ta lấy độ cao của Orb và cộng thêm một khoảng nhỏ để đảm bảo nhân vật ở TRÊN Orb
+        -- Nếu Orb quá thấp, nhân vật vẫn sẽ ở độ cao an toàn.
+        local targetX = orbPart.Position.X
+        local targetZ = orbPart.Position.Z
+        local targetY = orbPart.Position.Y + 5 -- Luôn cao hơn Orb 5 studs để né quái
         
-        local distance = (root.Position - targetPos.Position).Magnitude
+        local targetCFrame = CFrame.new(targetX, targetY, targetZ)
+        
+        local distance = (root.Position - targetCFrame.Position).Magnitude
         local info = TweenInfo.new(distance / 200, Enum.EasingStyle.Linear)
         
-        -- Vô hiệu hóa trọng lực tạm thời để không bị rơi khi bay
         root.Anchored = true 
-        
-        local tween = TweenService:Create(root, info, {CFrame = targetPos})
+        local tween = TweenService:Create(root, info, {CFrame = targetCFrame})
         tween:Play()
         return tween
     end
 end
 
 MainTab:CreateToggle({
-   Name = "Auto Orb (Float Mode)",
+   Name = "Auto Orb (Fixed Height)",
    CurrentValue = false,
    Flag = "OrbToggle",
    Callback = function(Value)
@@ -48,24 +51,22 @@ MainTab:CreateToggle({
       if Value then
           task.spawn(function()
               while _G.AutoOrb do
-                  task.wait(0.1)
+                  task.wait(0.05)
                   local container = workspace.MapComponents:FindFirstChild("OrbContainer_Client")
                   
                   if container then
-                      local orbs = container:GetDescendants()
-                      for _, orb in pairs(orbs) do
+                      for _, orb in pairs(container:GetDescendants()) do
                           if orb:IsA("BasePart") and _G.AutoOrb then
-                              local t = tweenTo(orb.CFrame)
+                              -- Truyền cả Part vào hàm để lấy Position chính xác
+                              local t = tweenTo(orb)
                               if t then 
                                   t.Completed:Wait() 
-                                  -- Giữ nhân vật ở đó 0.2 giây để game nhận Orb rồi mới bay tiếp
-                                  task.wait(0.2) 
+                                  task.wait(0.1) 
                               end
                           end
                       end
                   end
               end
-              -- Trả lại trạng thái bình thường khi tắt Toggle
               if root then root.Anchored = false end
           end)
       else
